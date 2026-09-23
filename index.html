@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>リアルタイムLINE風チャット</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: transparent;
+    }
+
+    #chat-container {
+      width: 100%;
+      max-width: 1000px;
+      height: 100vh;
+      background-image: url('https://nicomarry.com/img/line.jpg');
+      background-size: cover;
+      background-position: center;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* 上部バー公式風 */
+    #group-bar {
+      display: flex;
+      align-items: center;
+      height: 120px;
+      padding: 0 16px;
+      background: rgba(255, 255, 255, 0.3);
+      backdrop-filter: blur(6px);
+      color: #fff;
+      font-size: 24px;
+      flex-shrink: 0;
+      border-bottom-left-radius: 16px;
+      border-bottom-right-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      background-image: url('https://nicomarry.com/img/line.jpg');
+      background-size: cover;
+      background-position: center;
+    }
+
+    #back-btn {
+      display: flex;
+      align-items: center;
+      font-size: 36px; /* 1.5倍 */
+      margin-right: 100px; /* 少し寄せる */
+      cursor: pointer;
+    }
+
+    #back-btn span {
+      margin-left: 8px;
+      font-size: 30px; /* 1.5倍 */
+    }
+
+    #group-name {
+      font-weight: bold;
+      font-size: 45px; /* 1.5倍 */
+    }
+
+    #chat-box {
+      flex: 1;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      scrollbar-width: none;
+    }
+    #chat-box::-webkit-scrollbar {
+      display: none;
+    }
+
+    .message-row {
+      display: flex;
+      align-items: flex-end;
+      margin: 16px 0;
+    }
+
+    .icon {
+      width: 144px;
+      height: 144px;
+      border-radius: 50%;
+      margin: 0 16px;
+      background-size: cover;
+      background-position: center;
+      cursor: pointer;
+    }
+
+    .message {
+      display: inline-block;
+      max-width: 80%;
+      padding: 16px 24px;
+      border-radius: 24px;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+      font-size: 28px;
+      font-weight: 600;
+      line-height: 1.6;
+    }
+
+    .from-guest {
+      background: #fff;
+      border: 1px solid #ccc;
+      border-top-left-radius: 0;
+    }
+    .from-bridegroom {
+      background: #dcf8c6;
+      border-top-right-radius: 0;
+    }
+
+    #input-area {
+      display: flex;
+      align-items: center;
+      padding: 20px;
+      border-top: 1px solid #ddd;
+      background: #fafafa;
+    }
+
+    #icon-selector {
+      position: relative;
+      width: 144px;
+      height: 144px;
+      margin-right: 16px;
+    }
+
+    #selected-icon {
+      width: 144px;
+      height: 144px;
+      border-radius: 50%;
+      background-size: cover;
+      cursor: pointer;
+    }
+
+    #icon-options {
+      display: none;
+      position: absolute;
+      top: -320px;
+      left: 0;
+      width: 144px;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .icon-option {
+      width: 144px;
+      height: 144px;
+      border-radius: 50%;
+      background-size: cover;
+      cursor: pointer;
+      border: 2px solid #fff;
+    }
+
+    #input-msg {
+      flex: 1;
+      padding: 20px;
+      border-radius: 40px;
+      border: 1px solid #ccc;
+      outline: none;
+      font-size: 28px;
+    }
+
+    #send-btn {
+      margin-left: 12px;
+      padding: 16px 32px;
+      border: none;
+      border-radius: 40px;
+      background: #00b900;
+      color: #fff;
+      cursor: pointer;
+      font-size: 24px;
+    }
+
+    #secret-btn {
+      position: absolute;
+      width: 144px;
+      height: 144px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      top: 20px;
+      right: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="chat-container">
+    <div id="group-bar">
+      <div id="back-btn">＜<span>戻る</span></div>
+      <div id="group-name">Yusuke and Riko Wedding</div>
+    </div>
+
+    <div id="chat-box"></div>
+    <div id="input-area">
+      <div id="icon-selector">
+        <div id="selected-icon" style="background-image:url('https://nicomarry.com/img/que-12251150732.png')"></div>
+        <div id="icon-options">
+          <div class="icon-option" style="background-image:url('https://nicomarry.com/img/men.png')"></div>
+          <div class="icon-option" style="background-image:url('https://nicomarry.com/img/woman.png')"></div>
+        </div>
+      </div>
+      <input type="text" id="input-msg" placeholder="メッセージを入力">
+      <button id="send-btn">送信</button>
+    </div>
+    <button id="secret-btn" title="新郎新婦モード"></button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-app.js";
+    import { getDatabase, ref, push, onChildAdded } from "https://www.gstatic.com/firebasejs/12.3.0/firebase-database.js";
+
+    const firebaseConfig = {
+  apiKey: "AIzaSyAmvk_0tRR0EeVxCPUWbL_68AiAanlHHFk",
+  authDomain: "line-hazama.firebaseapp.com",
+  databaseURL: "https://line-hazama-default-rtdb.firebaseio.com/",
+  projectId: "line-hazama",
+  storageBucket: "line-hazama.firebasestorage.app",
+  messagingSenderId: "850750777675",
+  appId: "1:850750777675:web:35b9772f01a322b55f20ce",
+  measurementId: "G-D8EV7BN3EV"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const messagesRef = ref(db, 'messages');
+
+    const chatBox = document.getElementById('chat-box');
+    const inputMsg = document.getElementById('input-msg');
+    const sendBtn = document.getElementById('send-btn');
+    const selectedIconEl = document.getElementById('selected-icon');
+    const iconOptionsEl = document.getElementById('icon-options');
+    const iconOptionEls = document.querySelectorAll('.icon-option');
+    const secretBtn = document.getElementById('secret-btn');
+
+    const guestIconDefault = "https://nicomarry.com/img/que-12251150732.png";
+    const bridegroomIcon = "https://nicomarry.com/img/065556f03568d76adaa937f631a1216a-1.png";
+
+    let isBridegroomMode = false;
+
+    const inappropriateWords = ["バカ","アホ","馬鹿","ばか","あほ","しね","まんこ","ちんこ","fuck","ファック","sex","セックス","楽しくない","たのしくない","マンコ","チンコ","キモい","きもい","嫌","ダサい","辛","好きじゃない","ブサイク","クソ","うんこ","ウンコ","くそ","死ね","ぶさいく","きちがい","うざい","ちんぽ","ちんちん","まんまん","おっぱい","やりまん","ヤリマン","殺す","消えろ","くたばれ","きらい","むかつく","帰りたい","ころす","コロす","bitch","娼婦","売春","使いたくない","ブス","ぶす","うんち","まぬけ","やりちん","ぱいおつ","エロ","えろ"];
+
+    function addMessage(text, type, iconUrl, scroll = false) {
+      const row = document.createElement('div');
+      row.className = "message-row";
+
+      const icon = document.createElement('div');
+      icon.className = "icon";
+      icon.style.backgroundImage = `url(${iconUrl})`;
+
+      const msg = document.createElement('div');
+      msg.className = "message " + type;
+      msg.textContent = text;
+
+      if (type === "from-guest") {
+        row.appendChild(icon);
+        row.appendChild(msg);
+      } else {
+        row.style.justifyContent = "flex-end";
+        row.appendChild(msg);
+        row.appendChild(icon);
+      }
+
+      chatBox.appendChild(row);
+      if (scroll) chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    addMessage("ぜひメッセージをお願いします♡\n一言でもOKです！ \nみんなからの言葉が宝物になります","from-bridegroom", bridegroomIcon,false);
+
+    let initialLoad = true;
+
+    selectedIconEl.addEventListener('click', () => {
+      if (isBridegroomMode) return;
+      iconOptionsEl.style.display = iconOptionsEl.style.display === 'flex' ? 'none' : 'flex';
+    });
+
+    iconOptionEls.forEach(el => {
+      el.addEventListener('click', () => {
+        selectedIconEl.style.backgroundImage = el.style.backgroundImage;
+        iconOptionsEl.style.display = 'none';
+      });
+    });
+
+    secretBtn.addEventListener('click', () => {
+      const pwd = prompt("新郎新婦モードパスワードを入力してください");
+      if (pwd === "wedding1114") {
+        isBridegroomMode = !isBridegroomMode;
+        selectedIconEl.style.backgroundImage = isBridegroomMode ? `url(${bridegroomIcon})` : `url(${guestIconDefault})`;
+        alert(isBridegroomMode ? "新郎新婦モードON" : "新郎新婦モードOFF");
+      } else {
+        alert("パスワードが違います");
+      }
+    });
+
+    function sendMessage() {
+      let text = inputMsg.value.trim();
+      if (!text) return;
+
+      for (let word of inappropriateWords) {
+        if (text.includes(word)) {
+          alert("不適切なワードが含まれています");
+          return;
+        }
+      }
+
+      text = text.replace(/(.{18})/g, "$1\n");
+
+      const iconUrl = selectedIconEl.style.backgroundImage.slice(5, -2);
+      const type = isBridegroomMode ? "from-bridegroom" : "from-guest";
+      push(messagesRef, {text, type, iconUrl, timestamp: Date.now()});
+      inputMsg.value = '';
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    inputMsg.addEventListener('keypress', e => {
+      if(e.key==='Enter') sendMessage();
+    });
+
+    onChildAdded(messagesRef, snapshot => {
+      const data = snapshot.val();
+      addMessage(data.text, data.type, data.iconUrl, !initialLoad);
+    });
+
+    setTimeout(() => { initialLoad = false; }, 1500);
+  </script>
+</body>
+</html>
